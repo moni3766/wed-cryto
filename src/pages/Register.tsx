@@ -1,0 +1,337 @@
+import { useState } from "react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { TrendingUp, Mail, Lock, Eye, EyeOff, User, Users, Phone, Globe } from "lucide-react";
+import { authAPI } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+
+const Register = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const referralCode = searchParams.get("ref") || "";
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    country: "Việt Nam",
+    countryCode: "+84",
+    password: "",
+    confirmPassword: "",
+    referralCode: referralCode,
+  });
+
+  const countries = [
+    { name: "Việt Nam", code: "+84" },
+    { name: "Botswana", code: "+267" },
+    { name: "Kenya", code: "+254" },
+    { name: "Tanzania", code: "+255" },
+    { name: "Zimbabwe", code: "+263" },
+  ];
+
+  const handleCountryChange = (country: string) => {
+    const selectedCountry = countries.find((c) => c.name === country);
+    setFormData({
+      ...formData,
+      country,
+      countryCode: selectedCountry?.code || "",
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: "Mật khẩu không khớp",
+        description: "Vui lòng đảm bảo mật khẩu xác nhận trùng khớp",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const nameParts = formData.fullName.trim().split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      // Gọi API đăng ký với đúng các trường được hỗ trợ trong api.ts
+      const response = await authAPI.register({
+        email: formData.email,
+        password: formData.password,
+        firstName,
+        lastName,
+        phone: formData.phone,
+        ...(formData.referralCode && { referralCode: formData.referralCode }),
+      });
+
+      // Chuẩn hóa dữ liệu user để trang Settings và Header nhận diện được fullName
+      const apiUser = response.data?.user || {};
+      const userData = {
+        ...apiUser,
+        fullName: apiUser.fullName || `${firstName} ${lastName}`.trim(),
+        phone: apiUser.phone || formData.phone,
+        country: formData.country,
+      };
+
+      // Lưu token và thông tin user xuống localStorage
+      localStorage.setItem("token", response.data?.token || "");
+      localStorage.setItem("user", JSON.stringify(userData));
+
+      toast({
+        title: "Tạo tài khoản thành công!",
+        description: "Chào mừng bạn đến với ApexTrade",
+      });
+
+      navigate("/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Đăng ký thất bại",
+        description: error.message || "Không thể tạo tài khoản",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      {/* Left Side - Visual */}
+      <div className="hidden lg:flex flex-1 bg-gradient-dark items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-hero-glow" />
+        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+        <div className="relative z-10 text-center p-12">
+          <div className="w-24 h-24 rounded-2xl bg-gradient-gold flex items-center justify-center mx-auto mb-8 shadow-gold animate-float">
+            <TrendingUp className="w-12 h-12 text-primary-foreground" />
+          </div>
+          <h2 className="text-3xl font-display font-bold text-foreground mb-4">
+            Tham gia cùng 50,000+ Nhà đầu tư
+          </h2>
+          <p className="text-muted-foreground max-w-sm mx-auto">
+            Tạo tài khoản và bắt đầu hành trình tự do tài chính cùng các chuyên gia giao dịch hàng đầu.
+          </p>
+        </div>
+      </div>
+
+      {/* Right Side - Form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md animate-fade-in">
+          <Link to="/" className="flex items-center gap-2 mb-8">
+            <div className="w-10 h-10 rounded-lg bg-gradient-gold flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-display font-bold text-foreground">
+              Apex<span className="text-gradient-gold">Trade</span>
+            </span>
+          </Link>
+
+          <h1 className="text-3xl font-display font-bold text-foreground mb-2">
+            Tạo Tài Khoản
+          </h1>
+          <p className="text-muted-foreground mb-8">
+            Bắt đầu hành trình đầu tư của bạn ngay hôm nay
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Họ và tên</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="Nhập họ và tên đầy đủ"
+                  className="pl-10 h-12 bg-secondary border-border"
+                  value={formData.fullName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, fullName: e.target.value })
+                  }
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Địa chỉ Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Nhập địa chỉ email"
+                  className="pl-10 h-12 bg-secondary border-border"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Country Selector */}
+            <div className="space-y-2">
+              <Label htmlFor="country">Quốc gia</Label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                <select
+                  id="country"
+                  className="w-full h-12 pl-10 pr-4 bg-secondary border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={formData.country}
+                  onChange={(e) => handleCountryChange(e.target.value)}
+                  required
+                >
+                  {countries.map((country) => (
+                    <option key={country.name} value={country.name}>
+                      {country.name} ({country.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Phone Number */}
+            <div className="space-y-2">
+              <Label htmlFor="phone">Số điện thoại</Label>
+              <div className="relative flex gap-2">
+                <div className="w-24 h-12 bg-secondary border border-border rounded-md flex items-center justify-center text-muted-foreground font-medium">
+                  {formData.countryCode}
+                </div>
+                <div className="relative flex-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="XX XXX XXXX"
+                    className="pl-10 h-12 bg-secondary border-border"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Mật khẩu</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Tạo mật khẩu"
+                  className="pl-10 pr-10 h-12 bg-secondary border-border"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Nhập lại mật khẩu"
+                  className="pl-10 pr-10 h-12 bg-secondary border-border"
+                  value={formData.confirmPassword}
+                  onChange={(e) =>
+                    setFormData({ ...formData, confirmPassword: e.target.value })
+                  }
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="referralCode">Mã giới thiệu (Không bắt buộc)</Label>
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="referralCode"
+                  type="text"
+                  placeholder="Nhập mã giới thiệu"
+                  className="pl-10 h-12 bg-secondary border-border"
+                  value={formData.referralCode}
+                  onChange={(e) =>
+                    setFormData({ ...formData, referralCode: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="terms"
+                className="w-4 h-4 mt-1 rounded border-border bg-secondary accent-primary"
+                required
+              />
+              <label htmlFor="terms" className="text-sm text-muted-foreground">
+                Tôi đồng ý với các{" "}
+                <Link to="/terms" className="text-primary hover:underline">
+                  Điều khoản dịch vụ
+                </Link>{" "}
+                và{" "}
+                <Link to="/privacy" className="text-primary hover:underline">
+                  Chính sách bảo mật
+                </Link>
+              </label>
+            </div>
+
+            <Button type="submit" variant="hero" className="w-full h-12" disabled={loading}>
+              {loading ? "Đang tạo tài khoản..." : "Tạo Tài Khoản"}
+            </Button>
+          </form>
+
+          <p className="mt-8 text-center text-muted-foreground">
+            Đã có tài khoản?{" "}
+            <Link to="/login" className="text-primary hover:underline">
+              Đăng nhập
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
